@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// Include mpc, an external parser.
+#include "mpc.h"
+
 // Declare a buffer for user input with a size of 2048.
 static char buffer[2048];
 
@@ -32,6 +35,22 @@ void add_history(char* unused) {}
 
 /* REPL Function */
 int main(int argc, char** argv) {
+  // Set up parsers with mpc.
+  mpc_parser_t* Number   = mpc_new("number");
+  mpc_parser_t* Operator = mpc_new("operator");
+  mpc_parser_t* Expr     = mpc_new("expr");
+  mpc_parser_t* Lisp     = mpc_new("lisp");
+
+  // Define the language with the parsers.
+  mpca_lang(MPCA_LANG_DEFAULT,
+	    " \
+              number   : /-?[0-9]+/ ; \
+              operator : '+' | '-' | '*' | '/' ; \
+              expr     : <number> | '(' <operator> <expr>+ ')' ; \
+              lisp     : /^/ <operator> <expr>+ /$/ ; \
+	    ",
+	    Number, Operator, Expr, Lisp);
+  
   // Print information about the lang and REPL.
   puts("Brent's BYOL Project");
   puts("Press Ctrl-C to Exit \n");
@@ -44,13 +63,22 @@ int main(int argc, char** argv) {
     // Put the line in history.
     add_history(input);
 
-    // Read the line and input it in the buffer.
-    printf("No you're a %s\n", input);
+    // Parse the input.
+    mpc_result_t r;
+    if (mpc_parse("<stdin>", input, Lisp, &r)) {
+      mpc_ast_print(r.output);
+      mpc_ast_delete(r.output);
+    } else {
+      mpc_err_print(r.error);
+      mpc_err_delete(r.error);
+    }
+    //printf("No you're a %s\n", input);
 
     // Free the input in the buffer.
     free(input);
   }
 
-  // End the program.
+  // Clean the parsers and end the program.
+  mpc_cleanup(4, Number, Operator, Expr, Lisp);
   return 0;
 }
