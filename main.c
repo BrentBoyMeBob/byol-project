@@ -46,7 +46,7 @@ long evaluate_operator(long x, char* operator, long y) {
 } // Create an evaluation function for expressions.
 long evaluate(mpc_ast_t* t) {
   // If tagged as a number, return it directly.
-  // NOTE: PROBLEMATIC ERROR
+  // FIXME: PROBLEMATIC ERROR
   if (strstr(t->tag, "number")) {
     return atoi(t->contents);
   }
