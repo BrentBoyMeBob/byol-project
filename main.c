@@ -1,8 +1,9 @@
 // Include core libraries.
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
-// Include mpc, an external parser.
+// Include mpc, an external parser toolbox.
 #include "mpc.h"
 
 // Declare a buffer for user input with a size of 2048.
@@ -33,7 +34,42 @@ void add_history(char* unused) {}
 #endif
 
 
-/* REPL Function */
+/* Extra Functions */
+// Create an evaluation function for operators.
+long evaluate_operator(long x, char* operator, long y) {
+  if (strcmp(operator, "+") == 0) { return x + y; }     // Addition
+  if (strcmp(operator, "-") == 0) { return x - y; }     // Subtraction
+  if (strcmp(operator, "*") == 0) { return x * y; }     // Multiplication
+  if (strcmp(operator, "/") == 0) { return x / y; }     // Division
+  //if (strcmp(operator, "^") == 0) { return pow(x, y); } // Exponents
+  //if (strcmp(operator, "%") == 0) { return x % y; }     // Moduluses
+} // Create an evaluation function for expressions.
+long evaluate(mpc_ast_t* t) {
+  // If tagged as a number, return it directly.
+  // NOTE: PROBLEMATIC ERROR
+  if (strstr(t->tag, "number")) {
+    return atoi(t->contents);
+  }
+
+  // The operator is a second child.
+  printf("stage2");
+  char* operator = t->children[1]->contents;
+
+  // Make a variable for the third child.
+  long x = evaluate(t->children[2]);
+
+  // Iterate the remaining children and combining.
+  int i = 3;
+  while (strstr(t->children[i]->tag, "expr")) {
+    x = evaluate_operator(x, operator, evaluate(t->children[i]));
+    x++;
+  }
+  
+  return 1;
+}
+
+
+/* Main Code */
 int main(int argc, char** argv) {
   // Set up parsers with mpc.
   mpc_parser_t* Number   = mpc_new("number");
@@ -72,9 +108,13 @@ int main(int argc, char** argv) {
       mpc_err_print(r.error);
       mpc_err_delete(r.error);
     }
-    //printf("No you're a %s\n", input);
 
-    // Free the input in the buffer.
+    // Calculate and print the output
+    long result = evaluate(r.output);
+    printf("%li\n", result);
+    
+    // Clean the input and output in the buffer.
+    //mpc_ast_delete(r.output);
     free(input);
   }
 
