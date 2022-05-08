@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-// Include mpc, an external parser toolbox.
+// Include mpc, an external parser.
 #include "mpc.h"
 
 // Declare a buffer for user input with a size of 2048.
@@ -23,7 +23,7 @@ char* readline(char* prompt) {
   return cpy;
 }
 
-// Cheap add_history fakeout for Windows.
+// History function decoy for Windows.
 void add_history(char* unused) {}
 
 
@@ -35,41 +35,50 @@ void add_history(char* unused) {}
 
 
 /* Extra Functions */
-// Create an evaluation function for operators.
-long evaluate_operator(long x, char* operator, long y) {
-  if (strcmp(operator, "+") == 0) { return x + y; }     // Addition
-  if (strcmp(operator, "-") == 0) { return x - y; }     // Subtraction
-  if (strcmp(operator, "*") == 0) { return x * y; }     // Multiplication
-  if (strcmp(operator, "/") == 0) { return x / y; }     // Division
-  //if (strcmp(operator, "^") == 0) { return pow(x, y); } // Exponents
-  //if (strcmp(operator, "%") == 0) { return x % y; }     // Moduluses
-} // Create an evaluation function for expressions.
-long evaluate(mpc_ast_t* t) {
-  // If tagged as a number, return it directly.
-  // FIXME: PROBLEMATIC ERROR
+// Add an integer that finds the number of nodes in all of the children.
+/*int number_of_nodes(mpc_ast_t* t) {
+  if (t->children_num == 0) { return 1; }
+  if (t->children_num >= 1) {
+    int total = 1;
+    for (int i = 0; i < t->children_num; i++) {
+      total = total + number_of_nodes(t->children[i]);
+    }
+    return total;
+  }
+  return 0;
+}*/ // Add a function for evaluating operators.
+long eval_op(long x, char* op, long y) {
+  if (strcmp(op, "+") == 0) { return x + y; }     // Addition
+  if (strcmp(op, "-") == 0) { return x - y; }     // Subtraction
+  if (strcmp(op, "*") == 0) { return x * y; }     // Multiplication
+  if (strcmp(op, "/") == 0) { return x / y; }     // Division
+  if (strcmp(op, "^") == 0) { return pow(x, y); } // Exponents
+  if (strcmp(op, "%") == 0) { return x % y; }     // Moduluses
+  return 0;
+} // Add a function to evaluate the tree.
+long eval(mpc_ast_t* t) {
+  // If tagged as a number, return it directly back.
   if (strstr(t->tag, "number")) {
     return atoi(t->contents);
   }
 
-  // The operator is a second child.
-  printf("stage2");
-  char* operator = t->children[1]->contents;
+  // Make the operator the second child.
+  char* op = t->children[1]->contents;
 
-  // Make a variable for the third child.
-  long x = evaluate(t->children[2]);
+  // Store the third child in the x variable.
+  long x = eval(t->children[2]);
 
-  // Iterate the remaining children and combining.
+  // Iterate the remaining children, and combine them.
   int i = 3;
   while (strstr(t->children[i]->tag, "expr")) {
-    x = evaluate_operator(x, operator, evaluate(t->children[i]));
-    x++;
+    x = eval_op(x, op, eval(t->children[i]));
+    i++;
   }
-  
-  return 1;
+  return x;
 }
 
 
-/* Main Code */
+/* Main REPL */
 int main(int argc, char** argv) {
   // Set up parsers with mpc.
   mpc_parser_t* Number   = mpc_new("number");
@@ -81,7 +90,7 @@ int main(int argc, char** argv) {
   mpca_lang(MPCA_LANG_DEFAULT,
 	    " \
               number   : /-?[0-9]+/ ; \
-              operator : '+' | '-' | '*' | '/' ; \
+              operator : '+' | '-' | '*' | '/' | '^' | '%' ; \
               expr     : <number> | '(' <operator> <expr>+ ')' ; \
               lisp     : /^/ <operator> <expr>+ /$/ ; \
 	    ",
@@ -102,19 +111,17 @@ int main(int argc, char** argv) {
     // Parse the input.
     mpc_result_t r;
     if (mpc_parse("<stdin>", input, Lisp, &r)) {
-      mpc_ast_print(r.output);
+      //mpc_ast_print(r.output);
+      long result = eval(r.output);
+      printf("%li\n", result);
       mpc_ast_delete(r.output);
     } else {
       mpc_err_print(r.error);
       mpc_err_delete(r.error);
     }
+    //printf("No you're a %s\n", input);
 
-    // Calculate and print the output
-    long result = evaluate(r.output);
-    printf("%li\n", result);
-    
-    // Clean the input and output in the buffer.
-    //mpc_ast_delete(r.output);
+    // Free the input in the buffer.
     free(input);
   }
 
